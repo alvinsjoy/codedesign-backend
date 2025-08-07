@@ -1,10 +1,32 @@
 import { Router, Request, Response } from "express";
 import { companies } from "../data/mockData.js";
+import {
+  filterActivitiesByDateRange,
+  isValidDateFormat,
+} from "../utils/dateUtils.js";
 
 const router = Router();
 
 router.get("/overview", (req: Request, res: Response) => {
   try {
+    const { startDate, endDate } = req.query;
+
+    if (
+      startDate &&
+      typeof startDate === "string" &&
+      !isValidDateFormat(startDate)
+    ) {
+      return res
+        .status(400)
+        .json({ error: "Invalid startDate format. Use YYYY-MM-DD" });
+    }
+
+    if (endDate && typeof endDate === "string" && !isValidDateFormat(endDate)) {
+      return res
+        .status(400)
+        .json({ error: "Invalid endDate format. Use YYYY-MM-DD" });
+    }
+
     const totalCompanies = companies.length;
 
     let totalTeams = 0;
@@ -20,7 +42,13 @@ router.get("/overview", (req: Request, res: Response) => {
         totalMembers += team.members.length;
 
         team.members.forEach((member) => {
-          member.activities.forEach((activity) => {
+          const filteredActivities = filterActivitiesByDateRange(
+            member.activities,
+            startDate as string,
+            endDate as string
+          );
+
+          filteredActivities.forEach((activity) => {
             totalActivities++;
             totalHours += activity.hours;
 
@@ -45,6 +73,14 @@ router.get("/overview", (req: Request, res: Response) => {
       totalActivities,
       totalHours,
       topActivityTypes,
+      ...(startDate || endDate
+        ? {
+            dateFilter: {
+              startDate: startDate || "N/A",
+              endDate: endDate || "N/A",
+            },
+          }
+        : {}),
     };
 
     res.json(response);
@@ -57,6 +93,23 @@ router.get("/overview", (req: Request, res: Response) => {
 router.get("/company/:companyId", (req: Request, res: Response) => {
   try {
     const { companyId } = req.params;
+    const { startDate, endDate } = req.query;
+
+    if (
+      startDate &&
+      typeof startDate === "string" &&
+      !isValidDateFormat(startDate)
+    ) {
+      return res
+        .status(400)
+        .json({ error: "Invalid startDate format. Use YYYY-MM-DD" });
+    }
+
+    if (endDate && typeof endDate === "string" && !isValidDateFormat(endDate)) {
+      return res
+        .status(400)
+        .json({ error: "Invalid endDate format. Use YYYY-MM-DD" });
+    }
 
     const company = companies.find((c) => c.companyId === companyId);
 
@@ -70,7 +123,13 @@ router.get("/company/:companyId", (req: Request, res: Response) => {
       const uniqueTagsSet = new Set<string>();
 
       team.members.forEach((member) => {
-        member.activities.forEach((activity) => {
+        const filteredActivities = filterActivitiesByDateRange(
+          member.activities,
+          startDate as string,
+          endDate as string
+        );
+
+        filteredActivities.forEach((activity) => {
           totalHours += activity.hours;
 
           if (activityTypeHours[activity.type]) {
@@ -103,11 +162,113 @@ router.get("/company/:companyId", (req: Request, res: Response) => {
       companyId: company.companyId,
       companyName: company.name,
       teams,
+      ...(startDate || endDate
+        ? {
+            dateFilter: {
+              startDate: startDate || "N/A",
+              endDate: endDate || "N/A",
+            },
+          }
+        : {}),
     };
 
     res.json(response);
   } catch (error) {
     console.error("Error in /report/company:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.get("/member/:memberId", (req: Request, res: Response) => {
+  try {
+    const { memberId } = req.params;
+    const { startDate, endDate } = req.query;
+
+    if (
+      startDate &&
+      typeof startDate === "string" &&
+      !isValidDateFormat(startDate)
+    ) {
+      return res
+        .status(400)
+        .json({ error: "Invalid startDate format. Use YYYY-MM-DD" });
+    }
+
+    if (endDate && typeof endDate === "string" && !isValidDateFormat(endDate)) {
+      return res
+        .status(400)
+        .json({ error: "Invalid endDate format. Use YYYY-MM-DD" });
+    }
+
+    let foundMember = null;
+    let memberName = "";
+
+    for (const company of companies) {
+      for (const team of company.teams) {
+        const member = team.members.find((m) => m.memberId === memberId);
+        if (member) {
+          foundMember = member;
+          memberName = member.name;
+          break;
+        }
+      }
+      if (foundMember) break;
+    }
+
+    if (!foundMember) {
+      return res.status(404).json({ error: "Member not found" });
+    }
+
+    const filteredActivities = filterActivitiesByDateRange(
+      foundMember.activities,
+      startDate as string,
+      endDate as string
+    );
+
+    const totalHours = filteredActivities.reduce(
+      (sum, activity) => sum + activity.hours,
+      0
+    );
+
+    const dailyActivitiesMap: {
+      [date: string]: { activities: string[]; hours: number };
+    } = {};
+
+    filteredActivities.forEach((activity) => {
+      if (!dailyActivitiesMap[activity.date]) {
+        dailyActivitiesMap[activity.date] = { activities: [], hours: 0 };
+      }
+
+      dailyActivitiesMap[activity.date].activities.push(activity.type);
+      dailyActivitiesMap[activity.date].hours += activity.hours;
+    });
+
+    const dailyBreakdown = Object.entries(dailyActivitiesMap)
+      .map(([date, { activities, hours }]) => ({
+        date,
+        activities,
+        hours,
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    const response = {
+      memberId: foundMember.memberId,
+      name: memberName,
+      totalHours,
+      dailyBreakdown,
+      ...(startDate || endDate
+        ? {
+            dateFilter: {
+              startDate: startDate || "N/A",
+              endDate: endDate || "N/A",
+            },
+          }
+        : {}),
+    };
+
+    res.json(response);
+  } catch (error) {
+    console.error("Error in /report/member:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
