@@ -158,10 +158,44 @@ router.get("/company/:companyId", (req: Request, res: Response) => {
       };
     });
 
+    const activitySummaryByType: {
+      [type: string]: { totalHours: number; members: number };
+    } = {};
+    const membersByActivity: { [type: string]: Set<string> } = {};
+
+    company.teams.forEach((team) => {
+      team.members.forEach((member) => {
+        const filteredActivities = filterActivitiesByDateRange(
+          member.activities,
+          startDate as string,
+          endDate as string
+        );
+
+        filteredActivities.forEach((activity) => {
+          if (!activitySummaryByType[activity.type]) {
+            activitySummaryByType[activity.type] = {
+              totalHours: 0,
+              members: 0,
+            };
+            membersByActivity[activity.type] = new Set();
+          }
+
+          activitySummaryByType[activity.type].totalHours += activity.hours;
+          membersByActivity[activity.type].add(member.memberId);
+        });
+      });
+    });
+
+    Object.keys(activitySummaryByType).forEach((activityType) => {
+      activitySummaryByType[activityType].members =
+        membersByActivity[activityType].size;
+    });
+
     const response = {
       companyId: company.companyId,
       companyName: company.name,
       teams,
+      activitySummaryByType,
       ...(startDate || endDate
         ? {
             dateFilter: {
