@@ -54,4 +54,62 @@ router.get("/overview", (req: Request, res: Response) => {
   }
 });
 
+router.get("/company/:companyId", (req: Request, res: Response) => {
+  try {
+    const { companyId } = req.params;
+
+    const company = companies.find((c) => c.companyId === companyId);
+
+    if (!company) {
+      return res.status(404).json({ error: "Company not found" });
+    }
+    const teams = company.teams.map((team) => {
+      const totalMembers = team.members.length;
+      let totalHours = 0;
+      const activityTypeHours: { [key: string]: number } = {};
+      const uniqueTagsSet = new Set<string>();
+
+      team.members.forEach((member) => {
+        member.activities.forEach((activity) => {
+          totalHours += activity.hours;
+
+          if (activityTypeHours[activity.type]) {
+            activityTypeHours[activity.type] += activity.hours;
+          } else {
+            activityTypeHours[activity.type] = activity.hours;
+          }
+
+          activity.tags.forEach((tag) => uniqueTagsSet.add(tag));
+        });
+      });
+
+      const activityBreakdown = Object.entries(activityTypeHours)
+        .map(([type, totalHours]) => ({ type, totalHours }))
+        .sort((a, b) => b.totalHours - a.totalHours);
+
+      const uniqueTags = Array.from(uniqueTagsSet).sort();
+
+      return {
+        teamId: team.teamId,
+        teamName: team.name,
+        totalMembers,
+        totalHours,
+        activityBreakdown,
+        uniqueTags,
+      };
+    });
+
+    const response = {
+      companyId: company.companyId,
+      companyName: company.name,
+      teams,
+    };
+
+    res.json(response);
+  } catch (error) {
+    console.error("Error in /report/company:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 export default router;
