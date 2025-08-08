@@ -307,4 +307,87 @@ router.get("/member/:memberId", (req: Request, res: Response) => {
   }
 });
 
+router.post("/activity", (req: Request, res: Response) => {
+  try {
+    const { memberId, date, type, hours, tags } = req.body;
+
+    if (!memberId || !date || !type || !hours) {
+      return res.status(400).json({
+        error: "Missing required fields. Required: memberId, date, type, hours",
+      });
+    }
+
+    if (!isValidDateFormat(date)) {
+      return res.status(400).json({
+        error: "Invalid date format. Use YYYY-MM-DD",
+      });
+    }
+
+    if (typeof hours !== "number" || hours <= 0) {
+      return res.status(400).json({
+        error: "Hours must be a positive number",
+      });
+    }
+
+    if (tags && !Array.isArray(tags)) {
+      return res.status(400).json({
+        error: "Tags must be an array of strings",
+      });
+    }
+
+    let foundMember = null;
+    let memberName = "";
+    let companyName = "";
+    let teamName = "";
+
+    for (const company of companies) {
+      for (const team of company.teams) {
+        const member = team.members.find((m) => m.memberId === memberId);
+        if (member) {
+          foundMember = member;
+          memberName = member.name;
+          companyName = company.name;
+          teamName = team.name;
+          break;
+        }
+      }
+      if (foundMember) break;
+    }
+
+    if (!foundMember) {
+      return res.status(404).json({ error: "Member not found" });
+    }
+
+    const newActivity = {
+      date,
+      type,
+      hours,
+      tags: tags || [],
+    };
+
+    foundMember.activities.push(newActivity);
+
+    const response = {
+      success: true,
+      message: "Activity added successfully",
+      activity: newActivity,
+      member: {
+        memberId: foundMember.memberId,
+        name: memberName,
+        company: companyName,
+        team: teamName,
+      },
+      newTotalHours: foundMember.activities.reduce(
+        (sum, act) => sum + act.hours,
+        0
+      ),
+    };
+
+    res.status(201).json(response);
+  } catch (error) {
+    console.error("Error in POST /activity:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 export default router;
