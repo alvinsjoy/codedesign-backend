@@ -45,6 +45,11 @@ The server will be running at `http://localhost:3000`
 
 ## Testing
 
+> [!NOTE]
+> You can test the API endpoints using the provided **Hoppscotch links** (see each endpoint section below).
+
+use cURL commands:
+
 ```bash
 # Overview
 curl https://codedesign-backend.onrender.com/report/overview
@@ -58,6 +63,9 @@ curl https://codedesign-backend.onrender.com/report/member/mem_1
 # With date filtering
 curl "https://codedesign-backend.onrender.com/report/overview?startDate=2024-03-01&endDate=2024-03-02"
 ```
+
+> [!TIP]
+> For quick and easy testing, use the **Hoppscotch links** provided in each of the endpoint section below. They're pre-configured with the correct URLs and parameters.
 
 ### 1. GET /report/overview
 
