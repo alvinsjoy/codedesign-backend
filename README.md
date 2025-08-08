@@ -289,6 +289,99 @@ Added a new key `activitySummaryByType` to the `/report/company/:companyId` resp
 - **members**: Total number of unique members (does not double count the same member if they performed the activity more than once)
 - Uses **Set** data structure to ensure unique member counting
 
+#### POST /report/activity
+
+Allows adding new activities for existing members. Activities are stored in-memory and persist only during the server session.
+
+#### Request Body
+
+```json
+{
+  "memberId": "mem_1",
+  "date": "2024-03-05",
+  "type": "debugging", 
+  "hours": 3,
+  "tags": ["bugfix", "frontend"]
+}
+```
+
+#### Sample Response
+
+```json
+{
+  "success": true,
+  "message": "Activity added successfully",
+  "activity": {
+    "date": "2024-03-05",
+    "type": "debugging",
+    "hours": 3,
+    "tags": [
+      "bugfix",
+      "frontend"
+    ]
+  },
+  "member": {
+    "memberId": "mem_1",
+    "name": "Alice",
+    "company": "Alpha Inc",
+    "team": "Engineering"
+  },
+  "newTotalHours": 11
+}
+```
+
+#### Validation
+
+- **Required fields**: `memberId`, `date`, `type`, `hours`
+- **Date format**: Must be YYYY-MM-DD
+- **Hours**: Must be a positive number
+- **Tags**: Optional array of strings
+- **Member**: Must exist in the system
+
+![alt text](data/screenshots/activity.png)
+
+#### Test with cURL
+
+```bash
+curl -X POST http://localhost:3000/report/activity \
+  -H "Content-Type: application/json" \
+  -d '{
+    "memberId": "mem_1",
+    "date": "2024-03-05",
+    "type": "debugging",
+    "hours": 3,
+    "tags": ["bugfix", "frontend"]
+  }'
+```
+
+#### Test with Hoppscotch
+
+[Test Activity](https://hopp.sh/r/fhR3yJqQAm2d)
+
+#### Error Responses
+
+```json
+// Missing required field
+{
+  "error": "Missing required fields. Required: memberId, date, type, hours"
+}
+
+// Invalid member
+{
+  "error": "Member not found"
+}
+
+// Invalid date
+{
+  "error": "Invalid date format. Use YYYY-MM-DD"
+}
+
+// Invalid hours
+{
+  "error": "Hours must be a positive number"
+}
+```
+
 ## Data Structures
 
 ### Companies
